@@ -227,6 +227,12 @@ uint my_casefold_multiply_2(CHARSET_INFO *cs);
 
 my_bool my_ci_eq_collation_generic(CHARSET_INFO *self, CHARSET_INFO *other);
 
+LEX_CSTRING my_tailoring_generic(CHARSET_INFO *self,
+                                 my_repertoire_t repertoire);
+
+LEX_CSTRING my_tailoring_bin_generic(CHARSET_INFO *self,
+                                     my_repertoire_t repertoire);
+
 struct charset_info_st *my_ci_alloc(MY_CHARSET_LOADER *loader,
                                     const LEX_CSTRING name,
                                     LEX_CSTRING *out_name,
@@ -246,5 +252,53 @@ extern const char charset_name_ucs2[];
 #define charset_name_ucs2_length 4
 extern const char charset_name_utf8mb4[];
 #define charset_name_utf8mb4_length 7
+
+/* Some common tailorings */
+
+/*** Repertoires for ALNUM characters ***/
+
+/* Most case insensitive collations */
+LEX_CSTRING my_tailoring_alnum_09_AaZz_ci();
+
+/* Most UCA case sensitive collations */
+LEX_CSTRING my_tailoring_alnum_09_aAzZ3_cs();
+
+/* Most _bin collations */
+LEX_CSTRING my_tailoring_alnum_09_AZ_az();
+
+/*** Repertoires for IDENT characters ***/
+
+/* Most UCA case insensitive collations */
+LEX_CSTRING my_tailoring_ident_underscore_09_AaZz_ci();
+
+/* Most UCA case sensitive collations */
+LEX_CSTRING my_tailoring_ident_underscore_09_aAzZ3_cs();
+
+/* Most simple _ci collations */
+LEX_CSTRING my_tailoring_ident_09_AaZz_ci_underscore();
+
+/* Most _bin collations */
+LEX_CSTRING my_tailoring_ident_09_AZ_underscore_az();
+
+/*** Repertoires for ASCII characters ***/
+LEX_CSTRING my_tailoring_ascii_binary_ci();
+LEX_CSTRING my_tailoring_ascii_bin();
+LEX_CSTRING my_tailoring_ascii_uca400_cs();
+LEX_CSTRING my_tailoring_ascii_uca400_ci();
+LEX_CSTRING my_tailoring_ascii_uca1400_cs();
+LEX_CSTRING my_tailoring_ascii_uca1400_ci();
+
+
+/*** Repertoires strings by repertoire ***/
+LEX_CSTRING my_tailoring_simple_ci_by_flags(CHARSET_INFO *self,
+                                            my_repertoire_t repertoire,
+                                            uint flags);
+
+LEX_CSTRING my_tailoring_ascii_binary_ci_generic(CHARSET_INFO *self,
+                                                 my_repertoire_t repertoire);
+
+LEX_CSTRING my_tailoring_ident_binary_ci_generic(CHARSET_INFO *self,
+                                                 my_repertoire_t repertoire);
+
 
 #endif /*STRINGS_DEF_INCLUDED */

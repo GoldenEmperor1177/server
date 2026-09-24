@@ -898,7 +898,8 @@ static MY_COLLATION_HANDLER my_collation_ci_handler =
     my_max_str_8bit_simple,
     my_ci_get_id_generic,
     my_ci_get_collation_name_generic,
-    my_ci_eq_collation_generic
+    my_ci_eq_collation_generic,
+    my_tailoring_ident_binary_ci_generic
 };
 
 static MY_COLLATION_HANDLER my_collation_nopad_ci_handler =
@@ -918,7 +919,8 @@ static MY_COLLATION_HANDLER my_collation_nopad_ci_handler =
     my_max_str_8bit_simple,
     my_ci_get_id_generic,
     my_ci_get_collation_name_generic,
-    my_ci_eq_collation_generic
+    my_ci_eq_collation_generic,
+    my_tailoring_ident_binary_ci_generic
 };
 
 static MY_CHARSET_HANDLER my_charset_handler=
@@ -969,7 +971,7 @@ struct charset_info_st my_charset_tis620_thai_ci=
     to_upper_tis620,
     sort_order_tis620,
     NULL,		/* uca          */
-    NULL,		/* tab_to_uni   */
+    cs_to_uni,		/* tab_to_uni   */
     NULL,		/* tab_from_uni */
     NULL,               /* casefold     */
     NULL,		/* state_map    */
@@ -999,7 +1001,7 @@ struct charset_info_st my_charset_tis620_bin=
     to_upper_tis620,
     NULL,		/* sort_order   */
     NULL,		/* uca          */
-    NULL,		/* tab_to_uni   */
+    cs_to_uni,		/* tab_to_uni   */
     NULL,		/* tab_from_uni */
     NULL,               /* casefold     */
     NULL,		/* state_map    */
@@ -1030,7 +1032,7 @@ struct charset_info_st my_charset_tis620_thai_nopad_ci=
     to_upper_tis620,
     sort_order_tis620,
     NULL,                  /* uca              */
-    NULL,                  /* tab_to_uni       */
+    cs_to_uni,             /* tab_to_uni       */
     NULL,                  /* tab_from_uni     */
     NULL,                  /* casefold         */
     NULL,                  /* state_map        */
@@ -1061,7 +1063,7 @@ struct charset_info_st my_charset_tis620_nopad_bin=
     to_upper_tis620,
     NULL,                  /* sort_order       */
     NULL,                  /* uca              */
-    NULL,                  /* tab_to_uni       */
+    cs_to_uni,             /* tab_to_uni       */
     NULL,                  /* tab_from_uni     */
     NULL,                  /* casefold         */
     NULL,                  /* state_map        */
