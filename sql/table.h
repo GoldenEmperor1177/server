@@ -2519,6 +2519,13 @@ struct TABLE_LIST
   /* link in a global list of all queries tables */
   TABLE_LIST *next_global, **prev_global;
   TABLE_LIST *linked_table;             // For sequence tables used in default
+  /*
+    Which owning table (and which position in its internal_tables list)
+    an internal-table prelocking entry (see add_internal_tables() in
+    sql_base.cc) was created for.
+  */
+  TABLE_LIST *internal_tables_owner;
+  uint internal_tables_ordinal;
   LEX_CSTRING   db;
   LEX_CSTRING   table_name;
   LEX_CSTRING   schema_table_name;

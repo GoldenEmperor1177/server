@@ -4055,6 +4055,7 @@ bool extend_table_list(THD *thd, TABLE_LIST *tables,
   return error;
 }
 
+static bool relink_internal_tables(THD *thd, TABLE_LIST *table_list);
 
 /**
   Handle table list element by obtaining metadata lock, opening table or view
@@ -4353,6 +4354,10 @@ open_and_process_table(THD *thd, TABLE_LIST *tables, uint *counter, uint flags,
     goto end;
 
   error= extend_table_list(thd, tables, prelocking_strategy, has_prelocking_list);
+  if (unlikely(error))
+    goto end;
+
+  error= relink_internal_tables(thd, tables);
   if (unlikely(error))
     goto end;
 
@@ -5079,41 +5084,39 @@ bool table_already_fk_prelocked(TABLE_LIST *tl, LEX_CSTRING *db,
 
 
 static TABLE_LIST *internal_table_exists(TABLE_LIST *global_list,
-                                         TABLE_LIST *table)
+                                         TABLE_LIST *owner,
+                                         uint ordinal)
 {
-  do
+  for ( ; global_list; global_list= global_list->next_global)
   {
-    if (global_list->table_name.str == table->table_name.str &&
-        global_list->db.str == table->db.str)
+    if (global_list->internal_tables_owner == owner &&
+        global_list->internal_tables_ordinal == ordinal)
       return global_list;
-  } while ((global_list= global_list->next_global));
+  }
   return 0;
 }
 
 
 static bool
 add_internal_tables(THD *thd, Query_tables_list *prelocking_ctx,
-                    TABLE_LIST *tables)
+                    TABLE_LIST *tables, TABLE_LIST *owner)
 {
   TABLE_LIST *global_table_list= prelocking_ctx->query_tables;
+  uint ordinal= 0;
   DBUG_ENTER("add_internal_tables");
 
   do
   {
-    TABLE_LIST *tmp __attribute__((unused));
+    TABLE_LIST *tmp;
     DBUG_PRINT("info", ("table name: %s", tables->table_name.str));
     /*
       Skip table if already in the list. Can happen with prepared statements
+      re-executed after "owner" was closed and reopened in the meantime.
     */
-    if ((tmp= internal_table_exists(global_table_list, tables)))
+    if ((tmp= internal_table_exists(global_table_list, owner, ordinal)))
     {
-      /*
-        Use the original value for the next local, used by the
-        original prepared statement. We cannot trust the original
-        next_local value as it may have been changed by a previous
-        statement using the same table.
-      */
       tmp->linked_table= tables;
+      ordinal++;
       continue;
     }
 
@@ -5134,16 +5137,22 @@ add_internal_tables(THD *thd, Query_tables_list *prelocking_ctx,
 #endif
 
     TABLE_LIST *tl= (TABLE_LIST *) thd->alloc(sizeof(TABLE_LIST));
+    /*
+      Deep-copy onto the statement's own arena (active here) instead of
+      aliasing "tables"'s copies, which live on the TABLE's own mem_root
+      and go stale once that TABLE is closed.
+    */
+    LEX_CSTRING db= thd->strmake_lex_cstring(tables->db);
+    LEX_CSTRING table_name= thd->strmake_lex_cstring(tables->table_name);
 
 #ifdef PROTECT_STATEMENT_MEMROOT
     if (read_only_mem_root)
       thd->mem_root->flags|= ROOT_FLAG_READ_ONLY;
 #endif
 
-    if (!tl)
+    if (!tl || !db.str || !table_name.str)
       DBUG_RETURN(TRUE);
-    tl->init_one_table_for_prelocking(&tables->db,
-                                      &tables->table_name,
+    tl->init_one_table_for_prelocking(&db, &table_name,
                                       NULL, tables->lock_type,
                                       TABLE_LIST::PRELOCK_NONE,
                                       0, 0,
@@ -5154,10 +5163,51 @@ add_internal_tables(THD *thd, Query_tables_list *prelocking_ctx,
       it to point to the opened table.
     */
     tl->linked_table= tables;
+    tl->internal_tables_owner= owner;
+    tl->internal_tables_ordinal= ordinal;
     DBUG_PRINT("info", ("table name: %s added", tables->table_name.str));
+    ordinal++;
   } while ((tables= tables->next_global));
   DBUG_RETURN(FALSE);
 }
+
+
+/**
+  Point "table_list"'s own DEFAULT-sequence dependencies (see
+  add_internal_tables()) at the TABLE object just opened for it.
+
+  Unlike trigger/routine/FK discovery, this cannot be skipped once the
+  statement's table set is already known (has_prelocking_list):
+  "table_list" can still have been closed and reopened as a different
+  TABLE object since the previous execution, independently of whether the
+  set of tables changed. Runs for every table, every execution -- but,
+  like the discovery it replaces, only for the top-level statement: a
+  trigger/routine sub-statement (LTM_PRELOCKED) reuses the outer
+  statement's already-established entries and must not re-process them.
+
+  Called directly from open_and_process_table() rather than through
+  Prelocking_strategy::handle_table(), so it applies to every strategy
+  (ALTER, INSERT DELAYED, ...), not just DML_prelocking_strategy.
+*/
+
+static bool relink_internal_tables(THD *thd, TABLE_LIST *table_list)
+{
+  TABLE *table= table_list->table;
+  bool error= false;
+  if (thd->locked_tables_mode <= LTM_LOCK_TABLES &&
+      table->internal_tables &&
+      (table_list->for_insert_data || thd->lex->default_used))
+  {
+    Query_arena *arena, backup;
+    arena= thd->activate_stmt_arena_if_needed(&backup);
+    error= add_internal_tables(thd, thd->lex, table->internal_tables,
+                               table_list);
+    if (arena)
+      thd->restore_active_arena(arena, &backup);
+  }
+  return error;
+}
+
 
 /**
   Extend the table_list to include foreign tables for prelocking.
@@ -5320,27 +5370,6 @@ bool DML_prelocking_strategy::handle_table(THD *thd,
       return TRUE;
   }
 
-  /* Open any tables used by DEFAULT (like sequence tables) */
-  DBUG_PRINT("info", ("table: %p  name: %s  db: %s  flags: %u",
-                      table_list, table_list->table_name.str,
-                      table_list->db.str, table_list->for_insert_data));
-  if (table->internal_tables &&
-      (table_list->for_insert_data ||
-       thd->lex->default_used))
-  {
-    Query_arena *arena, backup;
-    bool error;
-    arena= thd->activate_stmt_arena_if_needed(&backup);
-    error= add_internal_tables(thd, prelocking_ctx,
-                               table->internal_tables);
-    if (arena)
-      thd->restore_active_arena(arena, &backup);
-    if (unlikely(error))
-    {
-      *need_prelocking= TRUE;
-      DBUG_RETURN(TRUE);
-    }
-  }
   DBUG_RETURN(FALSE);
 }
 
