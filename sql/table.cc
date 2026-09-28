@@ -765,7 +765,8 @@ static bool create_key_infos(const uchar *strpos, const uchar *frm_image_end,
                              KEY *first_keyinfo,
                              LEX_STRING *keynames)
 {
-  uint i, j, n_length;
+  uint i, n_length;
+  key_part_map j;
   KEY_PART_INFO *key_part= NULL;
   ulong *rec_per_key= NULL;
   KEY_PART_INFO *first_key_part= NULL, *key_part_end= NULL;
@@ -910,7 +911,7 @@ static bool create_key_infos(const uchar *strpos, const uchar *frm_image_end,
           *key_part++= first_key_part[j];
           *rec_per_key++= 0;
           keyinfo->ext_key_parts++;
-          keyinfo->ext_key_part_map|= 1 << j;
+          keyinfo->ext_key_part_map|= (key_part_map)1 << j;
         }
       }
       if (j == first_key_parts)
@@ -2934,7 +2935,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         offset+= HA_HASH_FIELD_LENGTH;
       }
     }
-    uint add_first_key_parts= 0;
+    key_part_map add_first_key_parts= 0;
     longlong ha_option= handler_file->ha_table_flags();
     keyinfo= share->key_info;
     uint primary_key= my_strcasecmp(system_charset_info,
@@ -3056,7 +3057,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
       {
         KEY_PART_INFO *new_key_part= (keyinfo-1)->key_part +
                                      (keyinfo-1)->ext_key_parts;
-        uint add_keyparts_for_this_key= add_first_key_parts;
+        key_part_map add_keyparts_for_this_key= add_first_key_parts;
         uint len_null_byte= 0, ext_key_length= 0;
         Field *field;
 
@@ -3092,10 +3093,10 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
 
         if (add_keyparts_for_this_key)
         {
-          for (i= 0; i < add_keyparts_for_this_key; i++)
+          for (key_part_map i= 0; i < add_keyparts_for_this_key; i++)
           {
             uint pk_part_length= key_first_info->key_part[i].store_length;
-            if (keyinfo->ext_key_part_map & 1<<i)
+            if (keyinfo->ext_key_part_map & (key_part_map)1<<i)
             {
               if (ext_key_length + pk_part_length > MAX_DATA_LENGTH_FOR_KEY)
               {
@@ -3115,11 +3116,11 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
           keyinfo->ext_key_parts= keyinfo->user_defined_key_parts;
           keyinfo->ext_key_flags= keyinfo->flags;
 	  keyinfo->ext_key_part_map= 0; 
-          for (i= 0; i < add_keyparts_for_this_key; i++)
+          for (key_part_map i= 0; i < add_keyparts_for_this_key; i++)
 	  {
-            if (ext_key_part_map & 1<<i)
+            if (ext_key_part_map & (key_part_map)1<<i)
 	    {
-              keyinfo->ext_key_part_map|= 1<<i;
+              keyinfo->ext_key_part_map|= (key_part_map)1<<i;
 	      keyinfo->ext_key_parts++;
             }
           }

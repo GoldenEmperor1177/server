@@ -50,7 +50,7 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
       In this key 'key_part_map' is the length of the key !
     */
     key_buff=info->lastkey+info->s->base.max_key_length;
-    pack_key_length= keypart_map;
+    pack_key_length= (ulong)keypart_map;
     bmove(key_buff, key, pack_key_length);
     last_used_keyseg= info->s->keyinfo[inx].seg + info->last_used_keyseg;
   }

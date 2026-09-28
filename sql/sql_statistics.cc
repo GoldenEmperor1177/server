@@ -3136,7 +3136,7 @@ read_statistics_for_table(THD *thd, TABLE *table,
                                         table_share->primary_key);
       for (uint j= 0; j < pk_parts; j++)
       {
-        if (!(ext_key_part_map & 1 << j))
+        if (!(ext_key_part_map & (key_part_map)1 << j))
 	{
           for (uint l= k; l < k + m; l++)
 	  {

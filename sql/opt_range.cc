@@ -16987,12 +16987,12 @@ static void print_key_value(String *out, const KEY_PART_INFO *key_part,
 void print_keyparts_name(String *out, const KEY_PART_INFO *key_part,
                          uint n_keypart, key_part_map keypart_map)
 {
-  uint i;
+  key_part_map i;
   out->append(STRING_WITH_LEN("("));
   bool first_keypart= TRUE;
   for (i=0; i < n_keypart; key_part++, i++)
   {
-    if (keypart_map & (1 << i))
+    if (keypart_map & ((key_part_map)1 << i))
     {
       if (first_keypart)
         first_keypart= FALSE;

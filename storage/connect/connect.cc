@@ -891,7 +891,7 @@ int CntIndexRange(PGLOBAL g, PTDB ptdb, const uchar* *key, uint *len,
 
     if (kp) {
       for (n= 0; n < tdbp->GetKnum(); n++) {
-        if (kmap[i] & (key_part_map)(1 << n)) {
+        if (kmap[i] & (key_part_map)1 << n) {
           if (b == true)
             // Cannot do indexing with missing intermediate key
             return -1;

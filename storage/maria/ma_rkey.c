@@ -59,7 +59,7 @@ int maria_rkey(MARIA_HA *info, uchar *buf, int inx, const uchar *key_data,
       bmove(key_buff, key_data, keypart_map);
     key.data=    key_buff;
     key.keyinfo= keyinfo;
-    key.data_length= keypart_map;
+    key.data_length= (ulong)keypart_map;
     key.ref_length= 0;
     key.flag= 0;
 

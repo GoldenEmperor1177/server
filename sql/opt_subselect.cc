@@ -2762,7 +2762,7 @@ bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
               !(keyuse->optimize & KEY_OPTIMIZE_REF_OR_NULL) &&
               (keyuse->null_rejecting || !keyuse->val->maybe_null()))
           {
-            bound_parts |= 1 << keyuse->keypart;
+            bound_parts |= (key_part_map)1 << keyuse->keypart;
           }
           keyuse++;
         } while (keyuse->key == key && keyuse->table == table);
