@@ -1,0 +1,40 @@
+#
+# MDEV-39343 Restoring from a mysqldump from older version makes mysql_upgrade version test fail
+#
+# The mysql.mariadb_upgrade_info table replaces the mysql_upgrade_info
+# datadir file as the marker mysql_upgrade uses to decide whether the
+# system schema needs upgrading. Being an ordinary system table, it is
+# now included in mysqldump/restore like any other mysql.* table.
+#
+# This test only covers the table definition itself, as created by a
+# fresh bootstrap via scripts/mysql_system_tables.sql: that exactly
+# one row exists after bootstrap, and that the PRIMARY KEY + CHECK
+# constraint guarantee it can never hold more than one row.
+#
+# The mysqldump/mysql_upgrade behavioral changes (dumping the table,
+# dropping it when absent on the source, reading/writing it instead
+# of the old file) are covered separately once those components land.
+#
+
+--echo # Exactly one row must exist after a fresh bootstrap
+SELECT COUNT(*) FROM mysql.mariadb_upgrade_info;
+
+--echo # id must be 1, and version must look like a real version string
+SELECT id, version REGEXP '^[0-9]+\\.[0-9]+\\.[0-9]+-MariaDB(-.+)?$' AS version_format_ok,
+       upgraded_at IS NOT NULL AS has_timestamp
+FROM mysql.mariadb_upgrade_info;
+
+--echo # A second row (default id) must be rejected as a duplicate key
+--error ER_DUP_ENTRY
+INSERT INTO mysql.mariadb_upgrade_info (version) VALUES ('1.0.0-MariaDB');
+
+--echo # A row with any id other than 1 must be rejected by the CHECK constraint
+--error ER_CONSTRAINT_FAILED
+INSERT INTO mysql.mariadb_upgrade_info (id, version) VALUES (2, '1.0.0-MariaDB');
+
+--echo # The existing row cannot be moved to another id either
+--error ER_CONSTRAINT_FAILED
+UPDATE mysql.mariadb_upgrade_info SET id = 2;
+
+--echo # Table must still contain exactly the original single row, unmodified by the above failures
+SELECT COUNT(*) FROM mysql.mariadb_upgrade_info;

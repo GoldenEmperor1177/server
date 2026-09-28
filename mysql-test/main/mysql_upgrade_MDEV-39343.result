@@ -1,0 +1,23 @@
+# Exactly one row must exist after a fresh bootstrap
+SELECT COUNT(*) FROM mysql.mariadb_upgrade_info;
+COUNT(*)
+1
+# id must be 1, and version must look like a real version string
+SELECT id, version REGEXP '^[0-9]+\\.[0-9]+\\.[0-9]+-MariaDB(-.+)?$' AS version_format_ok,
+upgraded_at IS NOT NULL AS has_timestamp
+FROM mysql.mariadb_upgrade_info;
+id	version_format_ok	has_timestamp
+1	1	1
+# A second row (default id) must be rejected as a duplicate key
+INSERT INTO mysql.mariadb_upgrade_info (version) VALUES ('1.0.0-MariaDB');
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+# A row with any id other than 1 must be rejected by the CHECK constraint
+INSERT INTO mysql.mariadb_upgrade_info (id, version) VALUES (2, '1.0.0-MariaDB');
+ERROR 23000: CONSTRAINT `CONSTRAINT_1` failed for `mysql`.`mariadb_upgrade_info`
+# The existing row cannot be moved to another id either
+UPDATE mysql.mariadb_upgrade_info SET id = 2;
+ERROR 23000: CONSTRAINT `CONSTRAINT_1` failed for `mysql`.`mariadb_upgrade_info`
+# Table must still contain exactly the original single row, unmodified by the above failures
+SELECT COUNT(*) FROM mysql.mariadb_upgrade_info;
+COUNT(*)
+1
