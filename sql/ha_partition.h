@@ -490,6 +490,7 @@ private:
   };
   enum partition_index_scan_method m_pi_scan_method;
   bool can_skip_merging_scans();
+  int handle_unordered_next_prev_eof(uchar *buf, bool is_next);
 public:
   handler **get_child_handlers()
   {
